@@ -1,0 +1,607 @@
+{
+  "_meta": {
+    "project": "双无人机持续不让步动态冲突风险评估——FC30完整仿真模型",
+    "version": "fc30-final-qre-v3.0",
+    "date": "2026-10-07",
+    "purpose": "固定标准Yield=30°/10°s；最后有效避让边界由YN/NY/YY完整轨迹物理可行性搜索确定；主结果改为阶段条件冲突风险与实时不让步倾向，严格三阶段连乘仅作次要审计。",
+    "status_legend": {
+      "official": "厂家公开参数",
+      "derived": "由官方参数按明确公式推导",
+      "author_scenario_choice": "作者的实验场景设计",
+      "provisional_sensitivity": "只用于敏感性/方法验证，待更直接证据替换",
+      "to_calibrate": "模型需要但目前无可靠FC30实测值",
+      "reference_only": "只作为参考边界/合理性校核，不宣称为双机运行标准",
+      "retired": "旧稿参数，禁止进入当前主计算"
+    }
+  },
+  "sources": {
+    "DJI_FC30": {
+      "type": "official_web",
+      "url": "https://www.dji.com/cn/flycart-30/specs",
+      "supports": [
+        "双电池机体重量65 kg、海平面货物状态最大起飞重量95 kg",
+        "全展开尺寸2.800×3.085×0.947 m",
+        "15 m/s官方航程/续航测试工况、最大水平速度20 m/s、最大俯仰角30°",
+        "RTK/非RTK悬停定位精度",
+        "雷达1.5–50 m感知范围、FOV、多向避障与3.5 m刹停后桨尖-障碍物安全距离"
+      ]
+    },
+    "JIN_2024": {
+      "type": "uploaded_paper",
+      "file": "基于定位、速度双误差的物流无人机碰撞概率分析_靳慧斌(1).pdf",
+      "supports": [
+        "定位误差与速度误差作为不同随机误差因素进入碰撞概率模型的建模思想"
+      ],
+      "does_not_support": [
+        "不直接提供FC30的σp或σv",
+        "M600尺寸、13 m/s、90.71 m最短飞行间隔不直接移植"
+      ]
+    },
+    "ZHANG_2018": {
+      "type": "uploaded_paper",
+      "file": "大延迟条件下无人机远程控制技术研究_张铭扬.pdf",
+      "supports": [
+        "远程无人机链路与飞控存在延迟分量",
+        "复杂链路可采用等效固定延迟作仿真简化"
+      ],
+      "does_not_support": [
+        "固定翼/Link-16条件下220–380 ms不作为FC30真实延迟"
+      ]
+    },
+    "UPLOADED_ENERGY": {
+      "type": "uploaded_code",
+      "file": "能耗公式源码.py",
+      "supports": [
+        "FC30双电池3968.8 Wh及28/16 km、29/18 min端点的能耗推导逻辑"
+      ],
+      "note": "Q9: 能耗公式尚未实现，主效用中不含能耗项。v3 曾表述为\"保留接口\"，经核查代码中不存在该接口，表述不准确，已在文档中更正。"
+    }
+  },
+  "aircraft": {
+    "model": {
+      "value": "DJI FlyCart 30",
+      "status": "official",
+      "source": "DJI_FC30"
+    },
+    "configuration": {
+      "value": "dual_battery_30kg_payload",
+      "status": "author_scenario_choice"
+    },
+    "mass_aircraft_with_two_batteries_kg": {
+      "value": 65.0,
+      "status": "official",
+      "source": "DJI_FC30"
+    },
+    "payload_kg": {
+      "value": 30.0,
+      "status": "author_scenario_choice"
+    },
+    "total_mass_kg": {
+      "value": 95.0,
+      "status": "derived",
+      "formula": "65+30"
+    },
+    "dimensions_unfolded_m_LWH": {
+      "value": [
+        2.8,
+        3.085,
+        0.947
+      ],
+      "status": "official",
+      "source": "DJI_FC30"
+    },
+    "cruise_speed_mps": {
+      "value": 15.0,
+      "status": "author_scenario_choice",
+      "source": "DJI_FC30",
+      "note": "与厂家航程/续航测试恒速工况一致"
+    },
+    "max_horizontal_speed_mps": {
+      "value": 20.0,
+      "status": "official",
+      "source": "DJI_FC30"
+    },
+    "max_pitch_deg": {
+      "value": 30.0,
+      "status": "official",
+      "source": "DJI_FC30"
+    }
+  },
+  "geometry": {
+    "single_body_half_axes_m": {
+      "value": [
+        1.4,
+        1.5425,
+        0.4735
+      ],
+      "status": "derived",
+      "formula": "厂家全展开L/W/H除以2"
+    },
+    "combined_collision_half_axes_m": {
+      "value": [
+        2.8,
+        3.085,
+        0.947
+      ],
+      "status": "derived",
+      "formula": "两架同型、轴向一致的保守组合外接椭球半轴相加"
+    },
+    "encounter_frame": {
+      "value": "x沿初始相对速度、y为水平横向、z竖直",
+      "status": "author_scenario_choice"
+    }
+  },
+  "obstacle_avoidance_reference": {
+    "radar_range_m": {
+      "value": [
+        1.5,
+        50.0
+      ],
+      "status": "official",
+      "source": "DJI_FC30"
+    },
+    "manufacturer_obstacle_clearance_m": {
+      "value": 3.5,
+      "status": "reference_only",
+      "source": "DJI_FC30",
+      "note": "DJI障碍物刹停后桨尖距离，仅作背景信息；v3不用于双机最后有效避让边界。"
+    },
+    "automatic_avoidance_active_in_game": {
+      "value": false,
+      "status": "author_scenario_choice",
+      "note": "机载自动避障视为独立末端安全屏障，不扩展当前Y/N策略集合"
+    }
+  },
+  "scenario": {
+    "encounter_type": {
+      "value": "same_altitude_head_on_or_near_head_on",
+      "status": "author_scenario_choice"
+    },
+    "heading_A_deg": {
+      "value": 0.0,
+      "status": "author_scenario_choice"
+    },
+    "heading_B_deg": {
+      "value": 180.0,
+      "status": "author_scenario_choice"
+    },
+    "vertical_offset_m": {
+      "value": 0.0,
+      "status": "author_scenario_choice"
+    },
+    "baseline_target_tcpa_s": {
+      "value": 30.0,
+      "status": "author_scenario_choice"
+    },
+    "baseline_target_dcpa_m": {
+      "value": 0.0,
+      "status": "author_scenario_choice",
+      "note": "主基准采用明确冲突轨迹以检验Yield能否改变后果；另做DCPA扫描"
+    },
+    "tcpa_sweep_s": {
+      "value": [
+        20.0,
+        30.0,
+        40.0
+      ],
+      "status": "author_scenario_choice"
+    },
+    "dcpa_sweep_m": {
+      "value": [
+        0.0,
+        3.0,
+        6.0,
+        10.0
+      ],
+      "status": "author_scenario_choice"
+    }
+  },
+  "uncertainty": {
+    "baseline_position_sigma_m": {
+      "value": 0.1,
+      "status": "provisional_sensitivity",
+      "note": "Q4: 0.1 m 保留为 v3 原参数基准。注意 Pcol 在该量级下并非饱和，而是 Cs=min(P/Pref,1) 把 [Pref,1] 区间压平。0.5 m 为敏感性对照的明确假设，未标定。σ量级与安全损失形式必须交叉对比，单改一个无效。"
+    },
+    "baseline_velocity_sigma_mps": {
+      "value": 0.0,
+      "status": "author_scenario_choice",
+      "note": "Q4: 基准 σ_v=0 保留。速度误差扫描保留，但误差幅度扫描不等同于信息不对称，两者分别标注。"
+    },
+    "position_sigma_sweep_m": {
+      "value": [
+        0.0,
+        0.05,
+        0.1,
+        0.3,
+        0.6
+      ],
+      "status": "provisional_sensitivity"
+    },
+    "velocity_sigma_sweep_mps": {
+      "value": [
+        0.0,
+        0.05,
+        0.1,
+        0.2
+      ],
+      "status": "provisional_sensitivity"
+    },
+    "covariance_model": {
+      "value": "Sigma_rel(tau)=Sigma_pA+Sigma_pB+tau^2*(Sigma_vA+Sigma_vB), isotropic diagonal",
+      "status": "provisional_sensitivity",
+      "source": "JIN_2024",
+      "note": "属于短时概率传播近似；若以后获得FC30完整导航状态协方差，应改用状态转移矩阵"
+    }
+  },
+  "information_structure": {
+    "observation_delay_s": {
+      "value": 0.0,
+      "status": "author_scenario_choice",
+      "note": "基准每次决策都使用当前同步状态；观测延迟与执行延迟分离"
+    },
+    "strategic_incomplete_information": {
+      "value": "双方不能直接获知对方真实效用、风险偏好及下一次Y/N选择",
+      "status": "author_scenario_choice"
+    },
+    "perception_bias_baseline": {
+      "value": {
+        "A_rel_pos_bias_m": [
+          0,
+          0,
+          0
+        ],
+        "A_rel_vel_bias_mps": [
+          0,
+          0,
+          0
+        ],
+        "B_rel_pos_bias_m": [
+          0,
+          0,
+          0
+        ],
+        "B_rel_vel_bias_mps": [
+          0,
+          0,
+          0
+        ]
+      },
+      "status": "author_scenario_choice"
+    },
+    "asymmetry_method_check": {
+      "enabled": {
+        "value": true,
+        "status": "author_scenario_choice"
+      },
+      "A_rel_pos_bias_m": {
+        "value": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "status": "author_scenario_choice"
+      },
+      "A_rel_vel_bias_mps": {
+        "value": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "status": "author_scenario_choice"
+      },
+      "B_rel_pos_bias_m": {
+        "value": [
+          0.0,
+          4.0,
+          0.0
+        ],
+        "status": "provisional_sensitivity",
+        "note": "仅用于验证不同感知输入能否进入双方效用，不解释为真实人因测量"
+      },
+      "B_rel_vel_bias_mps": {
+        "value": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "status": "author_scenario_choice"
+      },
+      "evaluation_time": {
+        "value": "stage2_end_s",
+        "status": "author_scenario_choice",
+        "note": "在冲突已紧迫但仍有机动余度时验证不同感知输入，避免在初始远距离阶段两者风险均近零而看不出差异"
+      }
+    }
+  },
+  "yield_action": {
+    "model": {
+      "value": "保持速度和高度；执行延迟后按固定水平转向率右转至目标航向改变量；保持；相对距离持续增大后按同一转向率恢复原航向",
+      "status": "author_scenario_choice"
+    },
+    "baseline_heading_change_deg": {
+      "value": 30.0,
+      "status": "author_scenario_choice",
+      "note": "本版本固定标准Yield航向改变量30°，暂不比较其他组合；不等于厂家最大俯仰30°。"
+    },
+    "baseline_turn_rate_degps": {
+      "value": 10.0,
+      "status": "author_scenario_choice",
+      "note": "本版本固定标准Yield水平转向率10°/s，暂不比较其他组合。"
+    },
+    "heading_change_candidates_deg": {
+      "value": [
+        30.0
+      ],
+      "status": "author_scenario_choice",
+      "note": "v3固定，仅保留30°用于代码兼容。"
+    },
+    "turn_rate_candidates_degps": {
+      "value": [
+        10.0
+      ],
+      "status": "author_scenario_choice",
+      "note": "v3固定，仅保留10°/s用于代码兼容。"
+    },
+    "right_turn_sign": {
+      "value": -1.0,
+      "status": "author_scenario_choice"
+    },
+    "separation_confirmation_s": {
+      "value": 0.5,
+      "status": "author_scenario_choice"
+    },
+    "recovery_tail_s": {
+      "value": 20.0,
+      "status": "author_scenario_choice"
+    }
+  },
+  "delay": {
+    "execution_delay_baseline_s": {
+      "value": 0.0,
+      "status": "author_scenario_choice",
+      "note": "主基准采用理想执行；不表示FC30真实执行延迟为0"
+    },
+    "execution_delay_sweep_s": {
+      "value": [
+        0.0,
+        0.1,
+        0.2,
+        0.3,
+        0.4
+      ],
+      "status": "provisional_sensitivity",
+      "source": "ZHANG_2018",
+      "note": "仍保留敏感性接口；基准值0 s。边界搜索逻辑完整包含“执行延迟→机动→保持→恢复”，替换基准延迟后无需改代码。"
+    },
+    "human_reaction_time_added_separately": {
+      "value": false,
+      "status": "author_scenario_choice",
+      "note": "QRE表示策略形成，不再额外叠加旧稿1.69 s等决策反应时间"
+    }
+  },
+  "safety_boundary": {
+    "mode": {
+      "value": "full_trajectory_physical_feasibility",
+      "status": "author_scenario_choice",
+      "note": "不设固定米制安全阈值。对YN/NY/YY从指令时刻起完整传播执行延迟、右转、保持、分离确认和恢复；全过程不得进入组合实体碰撞椭球，并必须完成恢复。最小中心间隔与最小椭球裕度作为结果输出。"
+    },
+    "latest_command_search_step_s": {
+      "value": 0.1,
+      "status": "author_scenario_choice"
+    },
+    "action_pairs": {
+      "value": [
+        "Y,N",
+        "N,Y",
+        "Y,Y"
+      ],
+      "status": "author_scenario_choice"
+    },
+    "conservative_boundary_rule": {
+      "value": "min(t_last_YN, t_last_NY)",
+      "status": "author_scenario_choice",
+      "note": "分别搜索YN、NY、YY；阶段终点保守取min(t_last_YN,t_last_NY)，YY独立报告。各边界都输出完整轨迹最小间隔。"
+    }
+  },
+  "collision_probability": {
+    "prediction_horizon_s": {
+      "value": 20.0,
+      "status": "author_scenario_choice"
+    },
+    "mc_samples": {
+      "value": 1024,
+      "status": "author_scenario_choice"
+    },
+    "candidate_time_count": {
+      "value": 4,
+      "status": "author_scenario_choice",
+      "note": "对名义碰撞椭球距离最小的若干预测时刻做Monte Carlo，取最大概率"
+    },
+    "random_seed": {
+      "value": 20261007,
+      "status": "author_scenario_choice"
+    },
+    "probability_reference": {
+      "value": 0.02,
+      "status": "provisional_sensitivity",
+      "note": "Q3: Pref 是安全损失的归一化尺度（normalisation scale），不是可接受碰撞概率阈值。后者单列为 probability_acceptance_threshold，两者数值可相等但概念不同，不得混用。"
+    }
+  },
+  "utility": {
+    "safety_weight": {
+      "value": 0.75,
+      "status": "provisional_sensitivity"
+    },
+    "efficiency_weight": {
+      "value": 0.25,
+      "status": "provisional_sensitivity"
+    },
+    "efficiency_path_weight": {
+      "value": 0.8,
+      "status": "provisional_sensitivity"
+    },
+    "efficiency_smooth_weight": {
+      "value": 0.2,
+      "status": "provisional_sensitivity"
+    },
+    "extra_path_reference_m": {
+      "value": 20.0,
+      "status": "provisional_sensitivity",
+      "note": "将等效额外航迹长度归一化；后续可由任务能耗模型替换"
+    },
+    "smooth_turn_rate_reference_degps": {
+      "value": 20.0,
+      "status": "provisional_sensitivity",
+      "note": "只用于平滑性归一化，不称为厂家最大偏航率"
+    },
+    "formula": {
+      "value": "TRACK A (implemented default): Lsafe=min(Pcol_max/Pref,1); Leff=betaL*C_length+betaOmega*C_smooth with C_length=min(extra/L0,1); C_smooth=min(integral(omega^2 dt)/(omega_ref^2*T),1); U=wS*(1-Lsafe)+wE*(1-Leff). TRACK B (original field text, run as explicit comparison): Lsafe=Pcol_max/(Pcol_max+Pref). NOTE: v3 declared TRACK B here while the code implemented TRACK A; this was a formula-code inconsistency. Both are now computed and reported side by side; the primary result form is decided by model reasoning, not by curve shape (Q1).",
+      "status": "author_scenario_choice",
+      "reconciliation_note": "Q1: declared-vs-implemented mismatch resolved by computing both forms, not by silently overwriting either."
+    },
+    "efficiency_weight_sweep": {
+      "value": [
+        0.1,
+        0.25,
+        0.4,
+        0.6
+      ],
+      "status": "provisional_sensitivity",
+      "note": "Q12: 暂保留原范围。扫描时 w_S=1-w_E，基准权重与扫描权重分别记录（is_baseline_weight）。先统一代价尺度再检查实际贡献，不为制造权衡效果直接扩大范围。"
+    }
+  },
+  "qre": {
+    "lambda_A": {
+      "value": 4.0,
+      "status": "provisional_sensitivity"
+    },
+    "lambda_B": {
+      "value": 4.0,
+      "status": "provisional_sensitivity"
+    },
+    "damping": {
+      "value": 0.5,
+      "status": "author_scenario_choice"
+    },
+    "tolerance": {
+      "value": 1e-10,
+      "status": "author_scenario_choice"
+    },
+    "max_iterations": {
+      "value": 500,
+      "status": "author_scenario_choice"
+    },
+    "interpretation": {
+      "value": "研究者依据双方各自感知状态构建两套结果效用，并联立求两变量Logit-QRE固定点；联立是因为策略概率相互依赖，不代表双方知道对方真实效用",
+      "status": "author_scenario_choice"
+    }
+  },
+  "dynamic_decision": {
+    "decision_update_interval_s": {
+      "value": 0.5,
+      "status": "author_scenario_choice",
+      "note": "Q6收敛性检查：dt由0.5细化至0.25时，stage1/2/3个体均值分别变化 0.02%/0.00%/0.005%，在线末值变化 0.025%。stage3在2点时均值已收敛，说明短阶段的问题是阶段间区分度而非采样不足，因此不通过改变阶段含义（κ重标）来凑点数。0.5s 保留为基准。"
+    },
+    "kappa_1": {
+      "value": 2.5,
+      "status": "provisional_sensitivity"
+    },
+    "kappa_2": {
+      "value": 1.5,
+      "status": "provisional_sensitivity"
+    },
+    "stage_rule": {
+      "value": "b1=t_CPA-kappa_1*DeltaT_f; b2=t_CPA-kappa_2*DeltaT_f; b3=tf; DeltaT_f=t_CPA-t_f. Q6: kappa_1=2.5, kappa_2=1.5 保留，不按样本量重标；短第三阶段的收敛性改由 0.5/0.25/0.1 s 步长细化检查，不通过改变阶段含义来凑点数。",
+      "status": "author_scenario_choice",
+      "note": "Q6: 不同意仅按样本量均衡重标kappa。先保留有模型依据的阶段定义，通过细化步长检查短阶段收敛性。原文PCR边界若采用，需先核实完整定义。"
+    },
+    "aggregation_rule": {
+      "value": "先求个体均值，再结合双方与三个阶段。Q8 保留已确认口径：当前阶段继续采用 v6 的『当前时刻至阶段末端剩余预测均值』，不恢复历史前缀或完整阶段融合。阶段间差异小只作诊断，不判定模型失败。",
+      "status": "author_scenario_choice"
+    },
+    "primary_risk_reporting": {
+      "value": {
+        "instantaneous_joint_non_yield": "P_NN(t)=(1-P_A(Y,t))*(1-P_B(Y,t))",
+        "stage_mean_non_yield": "对每阶段个体 P_NN(t) 取均值（个体先均值、再双方组合）",
+        "conditional_remaining_stage_risk": "R_i=product(q_l, l=current_stage..3)，宏观剩余阶段指数",
+        "strict_all_stage_probability": "q1*q2*q3，严格三阶段连乘",
+        "reporting_rule": "四类口径分别报告：在线行为指标 / 全历史回顾值 / 剩余阶段指数 / 物理碰撞概率。四者口径不同不得互相替代。边界跳变诊断不再是正式风险结果（Q10）。"
+      },
+      "status": "author_scenario_choice",
+      "note": "Q16: 明确区分在线行为指标、全历史回顾值、剩余阶段指数和物理碰撞概率。"
+    },
+    "deadline_sampling_rule": {
+      "value": "最后有效避让时刻t_last是连续时间边界；离散QRE更新只取t_k<t_last，避免把恰好落在数值边界上的脆弱点当成正常可重复决策样本。",
+      "status": "author_scenario_choice"
+    },
+    "t_conflict_formation": {
+      "value": 10.0,
+      "status": "author_scenario_choice",
+      "note": "Q7: 冲突形成/监测触发时刻，独立于预测窗 H。10 s 暂作原基准设定（保留 v6 数值），不再由 H 倒推。stage_bounds 返回 t_c_rule 标明来源。"
+    }
+  },
+  "numerics": {
+    "integration_dt_s": {
+      "value": 0.1,
+      "status": "author_scenario_choice"
+    },
+    "trajectory_output_stride": {
+      "value": 4,
+      "status": "author_scenario_choice"
+    },
+    "make_plots": {
+      "value": true,
+      "status": "author_scenario_choice"
+    }
+  },
+  "retired_legacy_parameters": {
+    "A_speed_16_mps": {
+      "value": 16.0,
+      "status": "retired"
+    },
+    "B_velocity_minus15_minus0p5": {
+      "value": [
+        -15.0,
+        -0.5,
+        0.0
+      ],
+      "status": "retired"
+    },
+    "single_half_axes_1p2_0p6_0p3": {
+      "value": [
+        1.2,
+        0.6,
+        0.3
+      ],
+      "status": "retired"
+    },
+    "position_sigma_0p8": {
+      "value": 0.8,
+      "status": "retired"
+    },
+    "velocity_sigma_0p15": {
+      "value": 0.15,
+      "status": "retired"
+    },
+    "yield_35deg": {
+      "value": 35.0,
+      "status": "retired"
+    },
+    "fixed_turn_rate_20degps": {
+      "value": 20.0,
+      "status": "retired"
+    },
+    "mixed_total_delay_2p945s": {
+      "value": 2.945,
+      "status": "retired"
+    },
+    "effective_avoidance_4p700s": {
+      "value": 4.7,
+      "status": "retired"
+    },
+    "safe_ellipsoid_scale_3x": {
+      "value": 3.0,
+      "status": "retired"
+    }
+  }
+}

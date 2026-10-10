@@ -1,0 +1,4 @@
+[
+  {"time_s": 12.0, "player": "A", "action": "Y", "executed": false, "effective": false, "note": "格式演示：只有意愿，I不归零；不是实测事件。"},
+  {"time_s": 26.0, "player": "A", "action": "Y", "executed": true, "effective": true, "note": "格式演示：假定已由外部验证有效，时间为确认时间；不是本次实测事件。"}
+]
